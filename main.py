@@ -1,18 +1,17 @@
 import os
-import time
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
 from supabase import create_client
 
 # ─────────────────────────────────────────
-# CONFIGURATION — fill these in Render.com environment variables
+# CONFIGURATION
 # ─────────────────────────────────────────
 API_URL      = os.environ.get("IIOT_API_URL")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 # ─────────────────────────────────────────
-# DT CONSTANTS — only DT002 (TRANSFORMER1) for now
+# DT CONSTANTS — only DT002 (TRANSFORMER1)
 # ─────────────────────────────────────────
 DT_CONSTANTS = {
     "939": {
@@ -24,6 +23,30 @@ DT_CONSTANTS = {
         "initial_oti":   50.2
     }
 }
+
+# ─────────────────────────────────────────
+# DATA VALIDATION
+# ─────────────────────────────────────────
+def is_valid(raw):
+    t1 = float(raw["Temp1"])
+    t2 = float(raw["Temp2"])
+    r  = float(raw["CURRENT_R"])
+    y  = float(raw["CURRENT_Y"])
+    b  = float(raw["CURRENT_B"])
+
+    if t1 < 5 or t1 > 120:
+        print(f"❌ Invalid Temp1: {t1} — skipping")
+        return False
+    if t2 < 5 or t2 > 120:
+        print(f"❌ Invalid Temp2: {t2} — skipping")
+        return False
+    if r < 0 or y < 0 or b < 0:
+        print(f"❌ Negative current — skipping")
+        return False
+    if r > 200 or y > 200 or b > 200:
+        print(f"❌ Unrealistic current (>200A) — skipping")
+        return False
+    return True
 
 # ─────────────────────────────────────────
 # THRESHOLD FUNCTIONS
@@ -64,7 +87,6 @@ def calculate(raw, const):
     imbalance = ((I_max - I_min) / I_avg * 100) if I_avg > 0 else 0
     dT        = t1 - t2
 
-    # Oil level
     expected_level = const["initial_level"] * (
         1 + 0.00075 * (OTI - const["initial_oti"])
     )
@@ -103,7 +125,7 @@ def calculate(raw, const):
     }
 
 # ─────────────────────────────────────────
-# MAIN LOOP
+# MAIN
 # ─────────────────────────────────────────
 def run():
     print(f"[{datetime.now()}] Fetching API data...")
@@ -122,6 +144,11 @@ def run():
 
         if location_id not in DT_CONSTANTS:
             print(f"Skipping LOCATION_ID {location_id} ({device.get('LOCATION_NAME', 'Unknown')})")
+            continue
+
+        # Validate reading before saving
+        if not is_valid(device):
+            print(f"⚠️ Bad reading from {device.get('LOCATION_NAME')} — not saved")
             continue
 
         const = DT_CONSTANTS[location_id]
