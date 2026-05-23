@@ -77,6 +77,15 @@ def calculate(raw, const):
     b   = float(raw["CURRENT_B"])
     pf  = float(raw["AVG_PF"])
 
+    # Voltage and current fields
+    vr          = float(raw["VR_Voltage"])
+    vy          = float(raw["VY_Voltage"])
+    vb          = float(raw["VB_Voltage"])
+    vry         = float(raw["VRY_Voltage"])
+    vyb         = float(raw["VYB_Voltage"])
+    vbr         = float(raw["VBR_Voltage"])
+    avg_current = float(raw["AVG_CURRENT"])
+
     I_max  = max(r, y, b)
     I_min  = min(r, y, b)
     I_avg  = (r + y + b) / 3
@@ -103,14 +112,25 @@ def calculate(raw, const):
     statuses = [oti_status(OTI), wti_status(WTI), k_status(K), imb_status(imbalance), oil_s]
     overall  = "CRITICAL" if "CRITICAL" in statuses else ("WARNING" if "WARNING" in statuses else "NORMAL")
 
+    # Convert IST timestamp from API to UTC
+    ts_ist = datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S")
+    ts_utc = (ts_ist - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+
     return {
         "dt_id":         const["dt_id"],
-        "timestamp": (datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S") - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp":     ts_utc,
         "temp1":         round(t1, 3),
         "temp2":         round(t2, 3),
+        "vr":            round(vr, 3),
+        "vy":            round(vy, 3),
+        "vb":            round(vb, 3),
+        "vry":           round(vry, 3),
+        "vyb":           round(vyb, 3),
+        "vbr":           round(vbr, 3),
         "current_r":     round(r, 3),
         "current_y":     round(y, 3),
         "current_b":     round(b, 3),
+        "avg_current":   round(avg_current, 3),
         "k":             round(K, 4),
         "load_pct":      round(K * 100, 2),
         "oti":           round(OTI, 2),
@@ -146,7 +166,6 @@ def run():
             print(f"Skipping LOCATION_ID {location_id} ({device.get('LOCATION_NAME', 'Unknown')})")
             continue
 
-        # Validate reading before saving
         if not is_valid(device):
             print(f"⚠️ Bad reading from {device.get('LOCATION_NAME')} — not saved")
             continue
