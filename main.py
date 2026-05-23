@@ -105,7 +105,7 @@ def calculate(raw, const):
 
     return {
         "dt_id":         const["dt_id"],
-        "timestamp": raw["DATA_STAMP"] ,
+        "timestamp": raw["DATA_STAMP"],
         "temp1":         round(t1, 3),
         "temp2":         round(t2, 3),
         "current_r":     round(r, 3),
