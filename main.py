@@ -1,6 +1,6 @@
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from supabase import create_client
 
 # ─────────────────────────────────────────
@@ -105,7 +105,7 @@ def calculate(raw, const):
 
     return {
         "dt_id":         const["dt_id"],
-        "timestamp": raw["DATA_STAMP"],
+        "timestamp": (datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S") - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S"),
         "temp1":         round(t1, 3),
         "temp2":         round(t2, 3),
         "current_r":     round(r, 3),
