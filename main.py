@@ -113,11 +113,8 @@ def calculate(raw, const):
     overall  = "CRITICAL" if "CRITICAL" in statuses else ("WARNING" if "WARNING" in statuses else "NORMAL")
 
     # Convert IST timestamp from API to UTC
-try:
     ts_ist = datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S")
     ts_utc = (ts_ist - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-except Exception:
-    ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     return {
         "dt_id":         const["dt_id"],
