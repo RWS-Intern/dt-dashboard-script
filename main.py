@@ -33,7 +33,6 @@ def is_valid(raw):
     r  = float(raw["CURRENT_R"])
     y  = float(raw["CURRENT_Y"])
     b  = float(raw["CURRENT_B"])
-
     if t1 < 5 or t1 > 120:
         print(f"❌ Invalid Temp1: {t1} — skipping")
         return False
@@ -70,14 +69,12 @@ def oil_status(dT):
 # FORMULA ENGINE
 # ─────────────────────────────────────────
 def calculate(raw, const):
-    t1  = float(raw["Temp1"])
-    t2  = float(raw["Temp2"])
-    r   = float(raw["CURRENT_R"])
-    y   = float(raw["CURRENT_Y"])
-    b   = float(raw["CURRENT_B"])
-    pf  = float(raw["AVG_PF"])
-
-    # Voltage and current fields
+    t1          = float(raw["Temp1"])
+    t2          = float(raw["Temp2"])
+    r           = float(raw["CURRENT_R"])
+    y           = float(raw["CURRENT_Y"])
+    b           = float(raw["CURRENT_B"])
+    pf          = float(raw["AVG_PF"])
     vr          = float(raw["VR_Voltage"])
     vy          = float(raw["VY_Voltage"])
     vb          = float(raw["VB_Voltage"])
@@ -101,27 +98,25 @@ def calculate(raw, const):
     )
     oil_loss_pct = max(0, (const["initial_level"] - expected_level)
                        / const["initial_level"] * 100)
-    theft = "ALERT" if oil_loss_pct > 1 else "OK"
-
+    theft     = "ALERT" if oil_loss_pct > 1 else "OK"
     from_top  = const["tank_height"] - expected_level
     level_pct = ((const["tank_height"] - from_top) / const["tank_height"] * 100)
     level_pct = max(0, min(100, level_pct))
-
-    oil_s = oil_status(dT)
+    oil_s     = oil_status(dT)
 
     statuses = [oti_status(OTI), wti_status(WTI), k_status(K), imb_status(imbalance), oil_s]
     overall  = "CRITICAL" if "CRITICAL" in statuses else ("WARNING" if "WARNING" in statuses else "NORMAL")
 
-    # Convert IST timestamp from API to UTC
-try:
-    ts_ist = datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S")
-    ts_utc = (ts_ist - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-    # Sanity check — if year is not current, use server time
-    if ts_ist.year < 2020 or ts_ist.year > 2030:
-        print(f"⚠️ Bad DATA_STAMP from API: {raw['DATA_STAMP']} — using server time")
+    # Convert IST timestamp from API to UTC with sanity check
+    try:
+        ts_ist = datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S")
+        if ts_ist.year < 2020 or ts_ist.year > 2030:
+            print(f"⚠️ Bad DATA_STAMP: {raw['DATA_STAMP']} — using server time")
+            ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            ts_utc = (ts_ist - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
         ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-except Exception:
-    ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     return {
         "dt_id":         const["dt_id"],
@@ -156,7 +151,6 @@ except Exception:
 # ─────────────────────────────────────────
 def run():
     print(f"[{datetime.now()}] Fetching API data...")
-
     try:
         response = requests.get(API_URL, timeout=30)
         data     = response.json()
@@ -168,17 +162,13 @@ def run():
 
     for device in data:
         location_id = device.get("LOCATION_ID")
-
         if location_id not in DT_CONSTANTS:
             print(f"Skipping LOCATION_ID {location_id} ({device.get('LOCATION_NAME', 'Unknown')})")
             continue
-
         if not is_valid(device):
             print(f"⚠️ Bad reading from {device.get('LOCATION_NAME')} — not saved")
             continue
-
         const = DT_CONSTANTS[location_id]
-
         try:
             row = calculate(device, const)
             db.table("dt_readings").insert(row).execute()
