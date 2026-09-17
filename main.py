@@ -1,6 +1,6 @@
 import os
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 from supabase import create_client
 
 # ─────────────────────────────────────────
@@ -107,16 +107,8 @@ def calculate(raw, const):
     statuses = [oti_status(OTI), wti_status(WTI), k_status(K), imb_status(imbalance), oil_s]
     overall  = "CRITICAL" if "CRITICAL" in statuses else ("WARNING" if "WARNING" in statuses else "NORMAL")
 
-    # Convert IST timestamp from API to UTC with sanity check
-    try:
-        ts_ist = datetime.strptime(raw["DATA_STAMP"], "%Y-%m-%d %H:%M:%S")
-        if ts_ist.year < 2020 or ts_ist.year > 2030:
-            print(f"⚠️ Bad DATA_STAMP: {raw['DATA_STAMP']} — using server time")
-            ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            ts_utc = (ts_ist - timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
-        ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    # Use actual server UTC time — API DATA_STAMP is unreliable (vendor clock issue)
+    ts_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     return {
         "dt_id":         const["dt_id"],
@@ -150,7 +142,7 @@ def calculate(raw, const):
 # MAIN
 # ─────────────────────────────────────────
 def run():
-    print(f"[{datetime.now()}] Fetching API data...")
+    print(f"[{datetime.utcnow()}] Fetching API data...")
     try:
         response = requests.get(API_URL, timeout=30)
         data     = response.json()
@@ -179,7 +171,7 @@ def run():
         except Exception as e:
             print(f"❌ Error saving {const['dt_id']}: {e}")
 
-    print(f"[{datetime.now()}] Done\n")
+    print(f"[{datetime.utcnow()}] Done\n")
 
 
 if __name__ == "__main__":
